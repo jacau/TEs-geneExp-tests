@@ -10,39 +10,60 @@ def arguments():
     parser.add_argument("-o","--output", help="Path for output", required=True)
     parser.add_argument("-m","--mutation_type", help="Are the mutations TEs (te) or SNPs (snp)?", choices=['te','snp'], required=True)
     parser.add_argument("-n","--pop_num", help="Number of individuals in the population, default 124 for my current population", type=int, required=True)
+    parser.add_argument("-i","--interval_len", help="Length of interval around genes, default 2000", type=int, required=True)
     parser.add_argument("-r","--rank_num", help="Number of individuals per rank bin, set by giving an int which is a power of 2", type=int, default=1)
     parser.add_argument("-H","--het_type", help="How to count TEs: 'a' for allele, 'i' for individual (ignoring heterozygosity)", choices=['a','i'], default='a')
     parser.add_argument("-t","--te_type", help="Subset by TE type, default to no subset", choices=['NA','RNA','DNA','RNA-TRIM','DNA-MITE','LINE','SINE','LTR','DIRS','TIR','Helitron','Maverick'], default='NA')
-    parser.add_argument("-i","--interval_len", help="Length of interval around genes, default 2000", type=int, default=2000)
     parser.add_argument("-s","--mutation_location", help="Consider only upstream or downstream or within", choices=['n','u','d','i'], default='n')
 
     args = parser.parse_args()
     return(args)
 
+#CHANGES: changed interval_len arg to no default
 def loop_gene(gene_expr,mut_db,smile,n_rank,het,interval,up,m_type,n):
 
     for i in range(gene_expr.shape[0]):
         
         #only columns 4-127 (0-based) contain expression values
-        #in subset below used 5:129 but after pac becomes index and no longer column
+        #in subset below (where data frame set up) used 5:129 but after pac becomes index and no longer column
         gene = gene_expr.iloc[i,5:(5+n)].sort_values()
 
         pac = gene.name
         scaff_gene = gene_expr.loc[pac,'scaff']
         dir = gene_expr.loc[pac,'dir']
         
-        start_interval = gene_expr.loc[pac,'start'] - interval
-        end_interval = gene_expr.loc[pac,'end'] + interval
+        start = gene_expr.loc[pac,'start']
+        end = gene_expr.loc[pac,'end']
         
-        if (m_loc == 'u' and dir == '+') or (m_loc == 'd' and dir == '-'):
-            end_interval = start_interval + interval
+        if (m_loc == 'n'):
+            start_interval = start - interval
+            end_interval = end + interval
+        elif (m_loc == 'i'):
+            start_interval = start
+            end_interval = end  
+        elif (m_loc == 'u' and dir == '+') or (m_loc == 'd' and dir == '-'):
+            start_interval = start - interval
+            end_interval = start  
         elif (m_loc == 'u' and dir == '-') or (m_loc == 'd' and dir == '+'):
-            start_interval = end_interval - interval
-        elif m_loc == 'i':
-            start_interval = gene_expr.loc[pac,'start']
-            end_interval = gene_expr.loc[pac,'end']
+            start_interval = end
+            end_interval = end + interval
+
+        #check that upstream / downstream variants aren't in annotated region of another gene
+        if i!=0:
+            if (gene_expr.iloc[i-1,3] > start_interval):
+                start_interval = gene_expr.iloc[i-1,3]
+
+        if i!=(gene_expr.shape[0]-1):
+            if (gene_expr.iloc[i+1,2] < end_interval):
+                end_interval = gene_expr.iloc[i+1,2]
         
-        subset = mut_db[(mut_db.scaff == scaff_gene) & (mut_db.start > start_interval) & (mut_db.start < end_interval)]
+        #when looking upstream or downstream but genes overlap, end_interval will be
+        #smaller value than start_interval which is really a nonsensical interval and 
+        #whole gene should be disregarded (no variants looked for)
+        if end_interval - start_interval <= 0:
+            subset = pd.DataFrame()
+        else:
+            subset = mut_db[(mut_db.scaff == scaff_gene) & (mut_db.start > start_interval) & (mut_db.start < end_interval)]
         
         if subset.shape[0] != 0:
    
@@ -159,6 +180,7 @@ for i in range(6,(6+n)):
     
 gene_expr.columns = new_columns
 gene_expr = gene_expr.set_index('pac')
+gene_expr = gene_expr.sort_values(['scaff','start'])
 
 #initialize new data frame for the smile plot table
 smile_external = pd.DataFrame(columns=range(1,(n/n_rank) + 1))
