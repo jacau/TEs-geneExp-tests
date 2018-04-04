@@ -1,6 +1,6 @@
-#modified from smile_plot.py
-#outputs a tab-delim file containing the number and proportion of variants (TEs
-#or SNPs) per outlier and non-outlier for each gene
+# Modified from smile_plot.py
+# Outputs a tab-delim file containing the number and proportion of variants (TEs
+# or SNPs) per outlier and non-outlier for each gene.
 
 import gffutils
 import pandas as pd
@@ -95,10 +95,10 @@ def find_rares(geneSub,mutSub):
 
     for j in range(geneSub.size):
 
-        #this is the name of the jth individual for the ith gene
+        # This is the name of the jth individual for the ith gene
         ind = geneSub.axes[0][j]
 
-        #number of TEs for individual j at gene i
+        # Number of TEs for individual j at gene i
         for x in range(mutSub.shape[0]):
 
             genotype = mutSub.iloc[x].loc[ind]
@@ -109,23 +109,22 @@ def find_rares(geneSub,mutSub):
 
     return mutCounter
 
-#CHANGES: changed interval_len arg to no default
 def loop_gene(exprOutlier, mut_db, outdf, het, interval, intervalEnd, m_loc,
         m_type, n, gene_breakdown):
 
     for i in range(exprOutlier.shape[0]):
 
-        #only columns 5:n (0-based) contain expression values
-        #in subset below (where data frame set up) used 6:n 
-        #but after pac becomes index and no longer column
+        # Only columns 5:n (0-based) contain expression values
+        # In subset below (where data frame set up) used 6:n 
+        # but after pac becomes index and no longer column.
         gene = exprOutlier.iloc[i,5:(5+n)]
         gene_out = gene[gene == 1]
         if (gene_out.size == 0):
             continue
         gene_non = gene[gene == 0]
 
-        #solved error with in gene types, pac had .0 at the end which isn't
-        #included in gene_breakdown file, so temp was always coming up empty
+        # Solved error with in gene types, pac had .0 at the end which isn't
+        # included in gene_breakdown file, so temp was always coming up empty.
         pac = int(gene.name)
         scaff_gene = exprOutlier.loc[pac,'scaff']
         dir = exprOutlier.loc[pac,'dir']
@@ -141,12 +140,12 @@ def loop_gene(exprOutlier, mut_db, outdf, het, interval, intervalEnd, m_loc,
             end_interval = end
         elif (m_loc == 'u' and dir == '+') or (m_loc == 'd' and dir == '-'):
             start_interval = start - interval
-            end_interval = start - intervalEnd #if intervalEnd not set, will be 0 or equivalent to normal (gene start)
+            end_interval = start - intervalEnd # if intervalEnd not set, will be 0 or equivalent to normal (gene start)
         elif (m_loc == 'u' and dir == '-') or (m_loc == 'd' and dir == '+'):
             start_interval = end + intervalEnd
             end_interval = end + interval
 
-        #check up/downstream variants not in annotated region of another gene
+        # Check up/downstream variants not in annotated region of another gene
         if i!=0:
             if (exprOutlier.iloc[i-1,3] > start_interval):
                 start_interval = exprOutlier.iloc[i-1,3]
@@ -155,9 +154,9 @@ def loop_gene(exprOutlier, mut_db, outdf, het, interval, intervalEnd, m_loc,
             if (exprOutlier.iloc[i+1,2] < end_interval):
                 end_interval = exprOutlier.iloc[i+1,2]
 
-        #when looking up or downstream but genes overlap, end_interval will be
-        #smaller value than start_interval which is a nonsensical interval and 
-        #whole gene should be disregarded (no variants looked for)
+        # When looking up or downstream but genes overlap, end_interval will be
+        # smaller value than start_interval which is a nonsensical interval and 
+        # whole gene should be disregarded (no variants looked for).
         if end_interval - start_interval <= 0:
             subset = pd.DataFrame()
         else:
@@ -170,9 +169,9 @@ def loop_gene(exprOutlier, mut_db, outdf, het, interval, intervalEnd, m_loc,
 
         if subset.shape[0] != 0:
 
-            #number of rare variants near expression outliers
+            # Number of rare variants near expression outliers
             outCount = find_rares(gene_out,subset)
-            #number of rare variants near non-outliers
+            # Number of rare variants near non-outliers
             nonCount = find_rares(gene_non,subset)
         else:
             outCount = 0
@@ -187,7 +186,7 @@ def loop_gene(exprOutlier, mut_db, outdf, het, interval, intervalEnd, m_loc,
 
     return outdf
 
-#command line arguments
+# Command line arguments
 args = arguments()
 mutpath = args.mut_db
 exprpath = args.expression_outliers
@@ -200,13 +199,13 @@ interval = args.interval_len
 intervalEnd = args.interval_end
 m_loc = args.mutation_location
 mut_type = args.mutation_type
-gbpath = args.gene_breakdown #only when looking into gene sites (e.g. exon)
+gbpath = args.gene_breakdown # only when looking into gene sites (e.g. exon)
 
-#load te_db as dataframe
+# Load te_db as dataframe
 mut_external = pd.read_csv(mutpath, sep='\t')
 
 if mut_type == 'te':
-    #change columns to remove the X infront of the number (output from R)
+    # Change columns to remove the X infront of the number (output from R)
     new_columns = mut_external.columns.values
 
     for i in range(4,(4+n)):
@@ -214,7 +213,7 @@ if mut_type == 'te':
 
     mut_external.columns = new_columns
 
-    #subset only TEs with minor allele frequency 3% or less
+    # Subset only TEs with minor allele frequency 3% or less
     if het == 'a':
         if n == 124:
             mut_external = mut_external[(mut_external.allele_count < 8)]
@@ -223,7 +222,7 @@ if mut_type == 'te':
     elif het == 'i':
         mut_external = mut_external[(mut_external.ind_count < 4)]
 
-    #subset TEs by type (if type != 'NA')
+    # Subset TEs by type (if type != 'NA')
     if type != 'NA':
         if type == 'RNA':
             mut_external = mut_external[(mut_external.TE.str[0] == 'R')]
@@ -249,11 +248,11 @@ if mut_type == 'te':
             mut_external = mut_external[(mut_external.TE.str[0:2] == 'DM')]
 
 elif mut_type == 'snp':
-    #fix column headers
+    # Fix column headers
     new_columns = mut_external.columns.values
     new_columns[0] = 'scaff'
 
-    #column name should be pos, but use start to match up with TE database
+    # Column name should be pos, but use start to match up with TE database
     new_columns[1] = 'start'
     new_columns[2] = 'allele_count'
     new_columns[3] = 'total_allele_num'
@@ -266,10 +265,10 @@ elif mut_type == 'snp':
 
     mut_external.columns = new_columns
 
-#load gene expression data
+# Load gene expression data
 exprOutlier = pd.read_csv(exprpath, sep='\t')
 
-#change columns to remove the letter at the end of the number
+# Change columns to remove the letter at the end of the number
 new_columns = exprOutlier.columns.values
 for i in range(6,(6+n)):
     new_columns[i] = new_columns[i][0:-1]
@@ -278,13 +277,13 @@ exprOutlier.columns = new_columns
 exprOutlier = exprOutlier.set_index('pac')
 exprOutlier = exprOutlier.sort_values(['scaff','start'])
 
-#if we want to find exon, UTR, intron, import the gff file
+# If we want to find exon, UTR, intron, import the gff file
 if len(m_loc) == 2:
     gene_breakdown = gffutils.FeatureDB(gbpath)
 else:
     gene_breakdown = 'empty_placeholder'
 
-#initialize new data frame for the smile plot table
+# Initialize new data frame for the smile plot table
 outcols = exprOutlier.columns.values[0:4].tolist()
 outcols.extend(("outlier_TEnum","o_ind_num","oTEprop","nonOutlier_TEnum","nO_ind_num","nTEprop"))
 output_external = pd.DataFrame(columns=outcols)
